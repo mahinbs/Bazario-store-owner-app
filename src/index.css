@@ -9,18 +9,18 @@ All colors MUST be HSL.
 @layer base {
   :root {
     /* Bazario Design System - Light Mode */
-    --background: 247 248 252;
+    --background: 228 29% 98%;
     /* #F7F8FC */
-    --foreground: 11 13 42;
+    --foreground: 236 59% 10%;
     /* #0B0D2A - Primary Text */
 
-    --card: 255 255 255;
+    --card: 0 0% 100%;
     /* #FFFFFF */
-    --card-foreground: 11 13 42;
+    --card-foreground: 236 59% 10%;
     /* #0B0D2A */
 
-    --popover: 255 255 255;
-    --popover-foreground: 11 13 42;
+    --popover: 0 0% 100%;
+    --popover-foreground: 236 59% 10%;
 
     /* Primary Gradient: #FF6B35 → #FF6B9D (Orange-Red → Pink) */
     --primary-blue: 16 100% 60%;
@@ -61,7 +61,7 @@ All colors MUST be HSL.
     /* 14px - rounded corners 12-16px */
 
     /* Text Colors */
-    --text-primary: 11 13 42;
+    --text-primary: 236 59% 10%;
     /* #0B0D2A */
     --text-secondary: 158 8% 50%;
     /* #5E6282 */
@@ -90,15 +90,15 @@ All colors MUST be HSL.
 
   .dark {
     /* Bazario Design System - Dark Mode */
-    --background: 15 16 35;
+    --background: 237 40% 10%;
     /* #0F1023 */
     --foreground: 210 40% 98%;
 
-    --card: 26 28 58;
+    --card: 236 38% 16%;
     /* #1A1C3A */
     --card-foreground: 210 40% 98%;
 
-    --popover: 26 28 58;
+    --popover: 236 38% 16%;
     --popover-foreground: 210 40% 98%;
 
     /* Primary Gradient maintained in dark mode */
@@ -123,21 +123,21 @@ All colors MUST be HSL.
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 26 28 58;
-    --input: 26 28 58;
+    --border: 236 38% 16%;
+    --input: 236 38% 16%;
     --ring: 16 100% 60%;
 
     --text-primary: 210 40% 98%;
     --text-secondary: 230 15% 65%;
     --text-muted: 230 15% 50%;
 
-    --sidebar-background: 15 16 35;
+    --sidebar-background: 237 40% 10%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 16 100% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 26 28 58;
+    --sidebar-accent: 236 38% 16%;
     --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 26 28 58;
+    --sidebar-border: 236 38% 16%;
     --sidebar-ring: 16 100% 60%;
   }
 }
