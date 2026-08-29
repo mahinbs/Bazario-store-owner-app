@@ -13,7 +13,7 @@ import {
     LogOut,
     Store,
     User,
-    Settings
+    Tag
 } from "lucide-react";
 import { authAPI, isAuthenticated, getUserData } from "@/services/api";
 import { useToast } from "@/hooks/use-toast";
@@ -57,7 +57,8 @@ const MainLayout = () => {
         { path: "/timings", label: "Timings", icon: Clock },
         { path: "/analytics", label: "Analytics", icon: LineChart },
         { path: "/commission", label: "Commission", icon: CreditCard },
-        // { path: "/profile", label: "Profile", icon: User }, // Reserved for future
+        { path: "/offers", label: "Offers", icon: Tag },
+        { path: "/profile", label: "Profile", icon: User },
     ];
 
     const SidebarContent = () => (

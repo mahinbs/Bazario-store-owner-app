@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clock, CheckCircle, Phone, Navigation, Package, Search, History, User, MapPin, ShoppingBag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { type Order, type OrderItem } from "@/services/api";
+import { ordersAPI, type Order, type OrderItem } from "@/services/api";
 
 type OrderStatus = 'new' | 'preparing' | 'ready' | 'rider_assigned' | 'completed' | 'cancelled';
 
@@ -18,83 +18,31 @@ const OrderNotifications = () => {
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "all">("all");
   const { toast } = useToast();
 
-  // Mock data for demonstration
-  useEffect(() => {
-    // In a real app, this would be an API call
-    const mockOrders: any[] = [
-      {
-        id: "ORD-001",
-        customer_name: "Rahul Kumar",
-        order_items: [
-          { products: { name: "Chicken Biryani" }, quantity: 2, price: 240 },
-          { products: { name: "Coke" }, quantity: 2, price: 40 }
-        ],
-        total_amount: 560,
-        status: "new",
-        created_at: new Date().toISOString(),
-        payment_method: "UPI",
-        delivery_address: "123, Gandhi Road, Bazario City",
-        order_type: "delivery"
-      },
-      {
-        id: "ORD-002",
-        customer_name: "Anita Singh",
-        order_items: [
-          { products: { name: "Masala Dosa" }, quantity: 1, price: 80 },
-          { products: { name: "Filter Coffee" }, quantity: 1, price: 30 }
-        ],
-        total_amount: 110,
-        status: "preparing",
-        created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 mins ago
-        payment_method: "Cash",
-        delivery_address: "45, North Street, Bazario City",
-        order_type: "delivery"
-      },
-      {
-        id: "ORD-003",
-        customer_name: "Mohamed R.",
-        order_items: [
-          { products: { name: "Parotta" }, quantity: 5, price: 15 },
-          { products: { name: "Chicken Salna" }, quantity: 1, price: 120 }
-        ],
-        total_amount: 195,
-        status: "ready",
-        created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 mins ago
-        payment_method: "UPI",
-        delivery_address: "Store Pickup",
-        order_type: "pickup"
-      },
-      {
-        id: "ORD-004",
-        customer_name: "Priya S.",
-        order_items: [
-          { products: { name: "Veg Noodles" }, quantity: 1, price: 150 }
-        ],
-        total_amount: 150,
-        status: "completed",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(), // 2 hours ago
-        payment_method: "Card",
-        delivery_address: "78, Main Road, Bazario City",
-        order_type: "delivery"
-      },
-      {
-        id: "ORD-005",
-        customer_name: "David J.",
-        order_items: [
-          { products: { name: "Chicken Burger" }, quantity: 1, price: 180 }
-        ],
-        total_amount: 180,
-        status: "cancelled",
-        created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(), // 3 hours ago
-        payment_method: "Cash",
-        delivery_address: "99, Beach Road, Bazario City",
-        order_type: "delivery"
+  const loadOrders = async () => {
+    try {
+      const response = await ordersAPI.getOrders();
+      if (response.success && response.data) {
+        setOrders(response.data);
       }
-    ];
-    setOrders(mockOrders as Order[]);
+    } catch (error) {
+      console.error('Failed to load orders:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadOrders();
+    const interval = setInterval(loadOrders, 15000);
+    return () => clearInterval(interval);
   }, []);
 
-  const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+  const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    const backendStatus = newStatus === 'new' ? 'pending' : newStatus === 'completed' ? 'delivered' : newStatus;
+    const response = await ordersAPI.updateOrderStatus(orderId, backendStatus);
+    if (!response.success) {
+      toast({ title: 'Error', description: response.error?.message || 'Failed to update order', variant: 'destructive' });
+      return;
+    }
+
     setOrders(orders.map(order =>
       order.id === orderId ? { ...order, status: newStatus } : order
     ));

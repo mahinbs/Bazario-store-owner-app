@@ -1,5 +1,4 @@
-// Mock API Configuration
-// This entire file is now a mock implementation for frontend-only demonstration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 // Types
 export interface SignupData {
@@ -122,427 +121,218 @@ export interface CreateOfferData {
     is_active?: boolean;
 }
 
-// Mock Data Storage using LocalStorage for persistence during session
-const getStoredData = (key: string, defaultData: any) => {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultData;
-};
+const getAuthToken = () => localStorage.getItem('auth_token');
 
-const setStoredData = (key: string, data: any) => {
-    localStorage.setItem(key, JSON.stringify(data));
-};
+async function apiRequest<T = any>(
+    endpoint: string,
+    options: RequestInit = {},
+    requireAuth = true
+): Promise<ApiResponse<T>> {
+    const token = getAuthToken();
+    const headers: Record<string, string> = {};
 
-// Initial Mock Data
-const MOCK_PRODUCTS: Product[] = [
-    {
-        id: '101',
-        name: 'Hyderabadi Chicken Biryani',
-        description: 'Aromatic basmati rice cooked with tender chicken and authentic spices',
-        price: 350,
-        category: 'Main Course',
-        image_url: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&q=80',
-        is_active: true,
-        created_at: new Date().toISOString()
-    },
-    {
-        id: '102',
-        name: 'Paneer Butter Masala',
-        description: 'Rich and creamy tomato gravy with soft cottage cheese cubes',
-        price: 280,
-        category: 'Curries',
-        image_url: 'https://images.unsplash.com/photo-1631452180519-c014fe946bc7?auto=format&fit=crop&q=80',
-        is_active: true,
-        created_at: new Date().toISOString()
-    },
-    {
-        id: '103',
-        name: 'Tandoori Chicken Platter',
-        description: 'Spicy marinated chicken roasted to perfection in a clay oven',
-        price: 450,
-        category: 'Starters',
-        image_url: 'https://images.unsplash.com/photo-1628294895950-98052523e036?auto=format&fit=crop&q=80',
-        is_active: true,
-        created_at: new Date().toISOString()
-    },
-    {
-        id: '104',
-        name: 'Mango Lassi',
-        description: 'Refreshing yogurt-based drink with sweet mango pulp',
-        price: 120,
-        category: 'Beverages',
-        image_url: 'https://images.unsplash.com/photo-1543362174-8b63e9c70814?auto=format&fit=crop&q=80',
-        is_active: false,
-        created_at: new Date().toISOString()
+    if (!(options.body instanceof FormData)) {
+        headers['Content-Type'] = 'application/json';
     }
-];
-
-const MOCK_ORDERS: Order[] = [
-    {
-        id: 'ORD-12345678',
-        customer_name: 'John Doe',
-        customer_phone: '9876543210',
-        customer_address: '123 Main St, Bazario City',
-        order_type: 'delivery',
-        status: 'pending',
-        total_amount: 570,
-        delivery_fee: 30,
-        created_at: new Date().toISOString(),
-        order_items: [
-            {
-                id: 'item-1',
-                product_id: '1',
-                quantity: 1,
-                price: 450,
-                products: { name: 'Organic Honey' }
-            },
-            {
-                id: 'item-2',
-                product_id: '2',
-                quantity: 1,
-                price: 120,
-                products: { name: 'Premium Basmati Rice' }
-            }
-        ]
+    if (requireAuth && token) {
+        headers['Authorization'] = `Bearer ${token}`;
     }
-];
 
-// Helper to simulate network delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        ...options,
+        headers: { ...headers, ...(options.headers as Record<string, string>) },
+    });
 
-// Mock API Implementation
-const mockRequest = async <T>(data: T, shouldFail = false): Promise<ApiResponse<T>> => {
-    await delay(800); // Simulate network latency
-    if (shouldFail) {
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
         return {
             success: false,
-            error: { message: 'Mock Error: Operation failed' }
+            error: {
+                message: data?.error?.message || data?.message || 'Request failed',
+                details: data?.error?.details || data?.errors,
+            },
         };
     }
-    return {
-        success: true,
-        data: data
-    };
+
+    return data;
+}
+
+const normalizePhone = (phone: string) => {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) return digits;
+    if (digits.length === 12 && digits.startsWith('91')) return digits.slice(2);
+    return digits;
 };
 
-// Auth API
+const saveSession = (data: any) => {
+    const token = data?.session?.accessToken;
+    if (token) {
+        localStorage.setItem('auth_token', token);
+        localStorage.setItem('user_data', JSON.stringify(data));
+    }
+};
+
 export const authAPI = {
-    signup: async (data: SignupData): Promise<ApiResponse> => {
-        console.log('Mock Signup:', data);
-        return mockRequest({ message: 'Signup successful' });
-    },
+    signup: async (data: SignupData): Promise<ApiResponse> =>
+        apiRequest('/auth/signup', { method: 'POST', body: JSON.stringify(data) }, false),
 
     login: async (data: LoginData): Promise<ApiResponse> => {
-        console.log('Mock Login:', data);
-        const mockUser = {
-            user: { email: data.email, id: 'user-123' },
-            session: { accessToken: 'mock-jwt-token' },
-            storeOwner: { storeName: 'My Awesome Store', ownerName: 'Admin User' }
-        };
-
-        localStorage.setItem('auth_token', mockUser.session.accessToken);
-        localStorage.setItem('user_data', JSON.stringify(mockUser));
-
-        return mockRequest(mockUser);
+        const response = await apiRequest<any>('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        }, false);
+        if (response.success && response.data) saveSession(response.data);
+        return response;
     },
 
     logout: async (): Promise<ApiResponse> => {
+        const response = await apiRequest('/auth/logout', { method: 'POST' });
         localStorage.removeItem('auth_token');
         localStorage.removeItem('user_data');
-        return mockRequest({ message: 'Logged out successfully' });
+        return response;
     },
 
-    resendVerification: async (email: string): Promise<ApiResponse> => {
-        return mockRequest({ message: 'Verification email sent' });
-    },
+    resendVerification: async (email: string): Promise<ApiResponse> =>
+        apiRequest('/auth/resend-verification', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+        }, false),
 
-    // OTP Authentication
     sendOTP: async (phoneNumber: string, purpose: 'login' | 'signup' = 'login'): Promise<ApiResponse> => {
-        console.log(`Mock OTP sent to ${phoneNumber} for ${purpose}`);
-        return mockRequest({ message: 'OTP sent successfully' });
+        const type = purpose === 'signup' ? 'phone_verification' : 'login';
+        return apiRequest('/otp/send', {
+            method: 'POST',
+            body: JSON.stringify({ phone: normalizePhone(phoneNumber), type }),
+        }, false);
     },
 
     verifyOTP: async (phoneNumber: string, otp: string, purpose: 'login' | 'signup' = 'login', userData?: any): Promise<ApiResponse> => {
-        if (otp === '1234') {
-            const mockUser = {
-                user: { phone: phoneNumber, id: 'user-otp-123' },
-                session: { accessToken: 'mock-otp-jwt-token' },
-                storeOwner: {
-                    storeName: userData?.storeName || 'OTP Store',
-                    ownerName: userData?.ownerName || 'Mobile User'
-                }
-            };
-
-            localStorage.setItem('auth_token', mockUser.session.accessToken);
-            localStorage.setItem('user_data', JSON.stringify(mockUser));
-
-            return mockRequest({
-                success: true,
-                data: mockUser,
-                emailVerificationSent: purpose === 'signup'
-            });
-        }
-        return {
-            success: false,
-            error: { message: 'Invalid OTP. Use 1234' }
-        };
+        const type = purpose === 'signup' ? 'store_owner_registration' : 'login';
+        const response = await apiRequest<any>('/otp/verify', {
+            method: 'POST',
+            body: JSON.stringify({ phone: normalizePhone(phoneNumber), otp, type, userData }),
+        }, false);
+        if (response.success && response.data) saveSession(response.data);
+        return response;
     },
 
-    checkPhoneExists: async (phoneNumber: string): Promise<ApiResponse> => {
-        return mockRequest({ exists: false });
-    },
+    checkPhoneExists: async (phoneNumber: string): Promise<ApiResponse> =>
+        apiRequest('/otp/check-phone', {
+            method: 'POST',
+            body: JSON.stringify({ phone: normalizePhone(phoneNumber) }),
+        }, false),
 
     uploadRegistrationImages: async (files: File[]): Promise<ApiResponse> => {
-        const mockImages = files.map(f => ({ imageUrl: URL.createObjectURL(f) }));
-        return mockRequest({ images: mockImages });
+        const formData = new FormData();
+        files.forEach((file) => formData.append('images', file));
+        return apiRequest('/auth/upload-registration-images', { method: 'POST', body: formData }, false);
     },
 };
 
-// Store API
 export const storeAPI = {
-    getProfile: async (): Promise<ApiResponse> => {
-        return mockRequest({
-            storeName: 'My Awesome Store',
-            ownerName: 'Admin User',
-            phone: '9876543210',
-            address: '123 Main St, Bazario City',
-            description: 'Best store in town',
-            storeImages: []
-        });
-    },
-
-    updateProfile: async (data: any): Promise<ApiResponse> => {
-        return mockRequest({ message: 'Profile updated' });
-    },
-
-    getTimings: async (): Promise<ApiResponse> => {
-        return mockRequest([
-            { day: 'Monday', open: '09:00', close: '21:00', isOpen: true },
-            { day: 'Tuesday', open: '09:00', close: '21:00', isOpen: true },
-            // ... add more days as needed
-        ]);
-    },
-
-    updateTimings: async (timings: any[]): Promise<ApiResponse> => {
-        return mockRequest({ message: 'Timings updated' });
-    },
-
+    getProfile: async (): Promise<ApiResponse> => apiRequest('/stores/profile'),
+    updateProfile: async (data: any): Promise<ApiResponse> =>
+        apiRequest('/stores/profile', { method: 'PUT', body: JSON.stringify(data) }),
+    getTimings: async (): Promise<ApiResponse> => apiRequest('/stores/timings'),
+    updateTimings: async (timings: any[]): Promise<ApiResponse> =>
+        apiRequest('/stores/timings', { method: 'POST', body: JSON.stringify({ timings }) }),
     uploadImage: async (file: File): Promise<ApiResponse> => {
-        return mockRequest({ imageUrl: URL.createObjectURL(file) });
+        const formData = new FormData();
+        formData.append('image', file);
+        return apiRequest('/stores/upload-image', { method: 'POST', body: formData });
     },
-
     uploadImages: async (files: File[]): Promise<ApiResponse> => {
-        const mockImages = files.map(f => ({ imageUrl: URL.createObjectURL(f) }));
-        return mockRequest({ images: mockImages });
+        const formData = new FormData();
+        files.forEach((file) => formData.append('images', file));
+        return apiRequest('/stores/upload-images', { method: 'POST', body: formData });
     },
-
-    deleteImage: async (imageUrl: string): Promise<ApiResponse> => {
-        return mockRequest({ message: 'Image deleted' });
-    },
+    deleteImage: async (imageUrl: string): Promise<ApiResponse> =>
+        apiRequest('/stores/delete-image', { method: 'DELETE', body: JSON.stringify({ imageUrl }) }),
 };
 
-// Products API
 export const productsAPI = {
-    getProducts: async (params?: any): Promise<ApiResponse<Product[]>> => {
-        const products = getStoredData('mock_products', MOCK_PRODUCTS);
-        return mockRequest(products);
+    getProducts: async (params?: Record<string, string>): Promise<ApiResponse<Product[]>> => {
+        const query = params ? `?${new URLSearchParams(params).toString()}` : '';
+        return apiRequest(`/products${query}`);
     },
-
-    getProduct: async (id: string): Promise<ApiResponse<Product>> => {
-        const products = getStoredData('mock_products', MOCK_PRODUCTS);
-        const product = products.find((p: Product) => p.id === id);
-        return product ? mockRequest(product) : { success: false, error: { message: 'Product not found' } };
-    },
-
-    createProduct: async (data: FormData): Promise<ApiResponse<Product>> => {
-        const newProduct: Product = {
-            id: Date.now().toString(),
-            name: data.get('name') as string,
-            description: data.get('description') as string,
-            price: Number(data.get('price')),
-            category: data.get('category') as string,
-            is_active: data.get('is_active') === 'true',
-            created_at: new Date().toISOString(),
-            image_url: 'https://via.placeholder.com/150' // Mock image
-        };
-        const products = getStoredData('mock_products', MOCK_PRODUCTS);
-        setStoredData('mock_products', [newProduct, ...products]);
-        return mockRequest(newProduct);
-    },
-
-    updateProduct: async (id: string, data: FormData): Promise<ApiResponse<Product>> => {
-        const products = getStoredData('mock_products', MOCK_PRODUCTS);
-        const index = products.findIndex((p: Product) => p.id === id);
-        if (index > -1) {
-            const updatedProduct = {
-                ...products[index],
-                name: data.get('name') as string,
-                description: data.get('description') as string,
-                price: Number(data.get('price')),
-                category: data.get('category') as string,
-                is_active: data.get('is_active') === 'true',
-            };
-            products[index] = updatedProduct;
-            setStoredData('mock_products', products);
-            return mockRequest(updatedProduct);
-        }
-        return { success: false, error: { message: 'Product not found' } };
-    },
-
-    deleteProduct: async (id: string): Promise<ApiResponse> => {
-        const products = getStoredData('mock_products', MOCK_PRODUCTS);
-        const filtered = products.filter((p: Product) => p.id !== id);
-        setStoredData('mock_products', filtered);
-        return mockRequest({ message: 'Product deleted' });
-    },
+    getProduct: async (id: string): Promise<ApiResponse<Product>> => apiRequest(`/products/${id}`),
+    createProduct: async (data: FormData): Promise<ApiResponse<Product>> =>
+        apiRequest('/products', { method: 'POST', body: data }),
+    updateProduct: async (id: string, data: FormData): Promise<ApiResponse<Product>> =>
+        apiRequest(`/products/${id}`, { method: 'PUT', body: data }),
+    deleteProduct: async (id: string): Promise<ApiResponse> =>
+        apiRequest(`/products/${id}`, { method: 'DELETE' }),
 };
 
-// Orders API
 export const ordersAPI = {
-    getOrders: async (params?: any): Promise<ApiResponse<Order[]>> => {
-        const orders = getStoredData('mock_orders', MOCK_ORDERS);
-        return mockRequest(orders);
+    getOrders: async (params?: Record<string, string>): Promise<ApiResponse<Order[]>> => {
+        const query = params ? `?${new URLSearchParams(params).toString()}` : '';
+        return apiRequest(`/orders${query}`);
     },
-
-    getOrder: async (id: string): Promise<ApiResponse<Order>> => {
-        const orders = getStoredData('mock_orders', MOCK_ORDERS);
-        const order = orders.find((o: Order) => o.id === id);
-        return order ? mockRequest(order) : { success: false, error: { message: 'Order not found' } };
-    },
-
-    updateOrderStatus: async (id: string, status: string, estimatedTime?: number): Promise<ApiResponse> => {
-        const orders = getStoredData('mock_orders', MOCK_ORDERS);
-        const index = orders.findIndex((o: Order) => o.id === id);
-        if (index > -1) {
-            orders[index].status = status;
-            setStoredData('mock_orders', orders);
-            return mockRequest({ message: 'Status updated' });
-        }
-        return { success: false, error: { message: 'Order not found' } };
-    },
-
+    getOrder: async (id: string): Promise<ApiResponse<Order>> => apiRequest(`/orders/${id}`),
+    updateOrderStatus: async (id: string, status: string, estimatedTime?: number): Promise<ApiResponse> =>
+        apiRequest(`/orders/${id}/status`, {
+            method: 'PUT',
+            body: JSON.stringify({ status, estimated_delivery_time: estimatedTime }),
+        }),
+    acceptOrder: async (id: string, estimatedTime?: number): Promise<ApiResponse> =>
+        apiRequest(`/orders/${id}/accept`, {
+            method: 'PUT',
+            body: JSON.stringify({ estimated_delivery_time: estimatedTime }),
+        }),
+    rejectOrder: async (id: string, reason?: string): Promise<ApiResponse> =>
+        apiRequest(`/orders/${id}/reject`, {
+            method: 'PUT',
+            body: JSON.stringify({ rejection_reason: reason }),
+        }),
     getOrderStats: async (period?: string): Promise<ApiResponse> => {
-        return mockRequest({
-            totalOrders: 150,
-            totalRevenue: 45000,
-            pendingOrders: 5,
-            completedOrders: 140
-        });
+        const query = period ? `?period=${period}` : '';
+        return apiRequest(`/orders/stats/summary${query}`);
     },
-
-    // Added for CommissionView
-    getCommissionSummary: async (period: string = 'today') => {
-        return mockRequest({
-            period,
-            summary: {
-                totalOrders: 25,
-                totalRevenue: 12500,
-                totalCommissionDeducted: 1250,
-                totalDeliveryFees: 500,
-                totalCodFees: 0,
-                netEarnings: 10750,
-                averageOrderValue: 500,
-                averageCommissionPerOrder: 50
-            },
-            orders: [
-                {
-                    id: 'ORD-88776655',
-                    customerName: 'Mock Customer',
-                    total: 550,
-                    deliveryFee: 30,
-                    platformCommission: 55,
-                    codFee: 0,
-                    netAmount: 495,
-                    status: 'delivered',
-                    date: new Date().toISOString()
-                }
-            ],
-            commissionBreakdown: [
-                {
-                    orderId: 'ORD-88776655',
-                    orderTotal: 550,
-                    platformCommissionRate: 10,
-                    platformCommissionAmount: 55,
-                    riderEarning: 25,
-                    deliveryFee: 30,
-                    codFee: 0,
-                    netStoreEarning: 495,
-                    date: new Date().toISOString()
-                }
-            ]
-        });
-    }
+    getCommissionSummary: async (period: string = 'today') =>
+        apiRequest(`/orders/commission-summary?period=${period}`),
 };
 
-// Analytics API
 export const analyticsAPI = {
     getDashboard: async (period?: string): Promise<ApiResponse> => {
-        return mockRequest({
-            sales: [100, 200, 150, 300, 250, 400],
-            visitors: [50, 80, 60, 100, 90, 120]
-        });
+        const query = period ? `?period=${period}` : '';
+        return apiRequest(`/analytics/dashboard${query}`);
     },
-
     getProducts: async (period?: string, limit?: number): Promise<ApiResponse> => {
-        return mockRequest([
-            { name: 'Top Product 1', sales: 50 },
-            { name: 'Top Product 2', sales: 30 }
-        ]);
+        const params = new URLSearchParams();
+        if (period) params.append('period', period);
+        if (limit) params.append('limit', String(limit));
+        const query = params.toString() ? `?${params.toString()}` : '';
+        return apiRequest(`/analytics/products${query}`);
     },
-
     getRevenue: async (period?: string, groupBy?: string): Promise<ApiResponse> => {
-        return mockRequest([
-            { date: '2023-10-01', revenue: 1000 },
-            { date: '2023-10-02', revenue: 1500 }
-        ]);
+        const params = new URLSearchParams();
+        if (period) params.append('period', period);
+        if (groupBy) params.append('groupBy', groupBy);
+        const query = params.toString() ? `?${params.toString()}` : '';
+        return apiRequest(`/analytics/revenue${query}`);
     },
 };
 
-// Offers API
 export const offersAPI = {
-    getOffers: async (params?: any): Promise<ApiResponse<{ offers: Offer[], pagination: any }>> => {
-        return mockRequest({
-            offers: [],
-            pagination: { page: 1, limit: 10, total: 0 }
-        });
+    getOffers: async (params?: Record<string, string>): Promise<ApiResponse<{ offers: Offer[]; pagination: any }>> => {
+        const query = params ? `?${new URLSearchParams(params).toString()}` : '';
+        return apiRequest(`/offers${query}`);
     },
-
-    createOffer: async (data: CreateOfferData): Promise<ApiResponse<Offer>> => {
-        return mockRequest({
-            id: 'offer-new',
-            store_id: 'store-1',
-            ...data,
-            valid_from: new Date().toISOString(),
-            is_active: true,
-            used_count: 0,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-        } as Offer);
-    },
-
-    updateOffer: async (id: string, data: Partial<CreateOfferData>): Promise<ApiResponse<Offer>> => {
-        return mockRequest({ message: 'Offer updated' } as any);
-    },
-
-    deleteOffer: async (id: string): Promise<ApiResponse<void>> => {
-        return mockRequest(undefined);
-    },
-
-    toggleOffer: async (id: string): Promise<ApiResponse<Offer>> => {
-        return mockRequest({ message: 'Offer toggled' } as any);
-    },
-
-    getAnalytics: async (): Promise<ApiResponse<any>> => {
-        return mockRequest({});
-    },
+    createOffer: async (data: CreateOfferData): Promise<ApiResponse<Offer>> =>
+        apiRequest('/offers', { method: 'POST', body: JSON.stringify(data) }),
+    updateOffer: async (id: string, data: Partial<CreateOfferData>): Promise<ApiResponse<Offer>> =>
+        apiRequest(`/offers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    deleteOffer: async (id: string): Promise<ApiResponse<void>> =>
+        apiRequest(`/offers/${id}`, { method: 'DELETE' }),
+    toggleOffer: async (id: string): Promise<ApiResponse<Offer>> =>
+        apiRequest(`/offers/${id}/toggle`, { method: 'POST' }),
+    getAnalytics: async (): Promise<ApiResponse<any>> => apiRequest('/offers/analytics'),
 };
 
-// Helper function to check if user is authenticated
-export const isAuthenticated = (): boolean => {
-    const token = localStorage.getItem('auth_token');
-    return !!token;
-};
+export const isAuthenticated = (): boolean => !!localStorage.getItem('auth_token');
 
-// Helper function to get user data
 export const getUserData = () => {
     const userData = localStorage.getItem('user_data');
     return userData ? JSON.parse(userData) : null;

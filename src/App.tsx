@@ -12,6 +12,8 @@ import TimingsPage from "./pages/TimingsPage";
 import OrdersPage from "./pages/OrdersPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
 import CommissionPage from "./pages/CommissionPage";
+import OffersPage from "./pages/OffersPage";
+import ProfilePage from "./pages/ProfilePage";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +33,8 @@ const App = () => (
             <Route path="/orders" element={<OrdersPage />} />
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/commission" element={<CommissionPage />} />
+            <Route path="/offers" element={<OffersPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
           </Route>
 
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
