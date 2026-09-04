@@ -11,6 +11,37 @@ import { ordersAPI, type Order, type OrderItem } from "@/services/api";
 
 type OrderStatus = 'new' | 'preparing' | 'ready' | 'rider_assigned' | 'completed' | 'cancelled';
 
+// This screen has its own status vocabulary; the backend has another
+// (pending / confirmed / ready_for_pickup / picked_up / on_the_way / delivered).
+// Nothing translated inbound, so orders arrived as 'pending' while the filters
+// below looked for 'new' - every incoming order was invisible to the store, and
+// delivered orders never reached History. Outbound was only half-mapped too:
+// 'ready' went to the API unchanged and was rejected. Translate both directions
+// here, at the boundary.
+const BACKEND_TO_UI: Record<string, OrderStatus> = {
+  pending: 'new',
+  confirmed: 'preparing',
+  preparing: 'preparing',
+  ready_for_pickup: 'ready',
+  rider_assigned: 'rider_assigned',
+  picked_up: 'rider_assigned',
+  on_the_way: 'rider_assigned',
+  delivered: 'completed',
+  cancelled: 'cancelled',
+};
+
+const UI_TO_BACKEND: Record<OrderStatus, string> = {
+  new: 'pending',
+  preparing: 'preparing',
+  ready: 'ready_for_pickup',
+  rider_assigned: 'rider_assigned',
+  completed: 'delivered',
+  cancelled: 'cancelled',
+};
+
+const toUiStatus = (status: string): OrderStatus =>
+  BACKEND_TO_UI[status] ?? (status as OrderStatus);
+
 const OrderNotifications = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [activeTab, setActiveTab] = useState("active");
@@ -22,7 +53,7 @@ const OrderNotifications = () => {
     try {
       const response = await ordersAPI.getOrders();
       if (response.success && response.data) {
-        setOrders(response.data);
+        setOrders(response.data.map((o: Order) => ({ ...o, status: toUiStatus(o.status as string) })) as Order[]);
       }
     } catch (error) {
       console.error('Failed to load orders:', error);
@@ -36,7 +67,7 @@ const OrderNotifications = () => {
   }, []);
 
   const updateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
-    const backendStatus = newStatus === 'new' ? 'pending' : newStatus === 'completed' ? 'delivered' : newStatus;
+    const backendStatus = UI_TO_BACKEND[newStatus] ?? newStatus;
     const response = await ordersAPI.updateOrderStatus(orderId, backendStatus);
     if (!response.success) {
       toast({ title: 'Error', description: response.error?.message || 'Failed to update order', variant: 'destructive' });
