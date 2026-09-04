@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.5618db533e234dc197b2233771665337',
-  appName: 'kilakarai-store-owner-hub',
+  appId: 'com.bazario.store',
+  appName: 'Bazario Store',
   webDir: 'dist',
   server: {
     url: 'https://5618db53-3e23-4dc1-97b2-233771665337.lovableproject.com?forceHideBadge=true',
