@@ -4,9 +4,12 @@ const config: CapacitorConfig = {
   appId: 'com.bazario.store',
   appName: 'Bazario Store',
   webDir: 'dist',
+  // Load the web assets bundled in the APK. This previously pointed at a
+  // lovableproject.com preview URL, so the installed app ignored its own build
+  // and executed whatever that third-party host served - and when the URL did
+  // not resolve, Android handed it to Chrome and the app never rendered.
   server: {
-    url: 'https://5618db53-3e23-4dc1-97b2-233771665337.lovableproject.com?forceHideBadge=true',
-    cleartext: true
+    androidScheme: 'https'
   },
   plugins: {
     SplashScreen: {
